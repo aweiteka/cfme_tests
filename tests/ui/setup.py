@@ -4,41 +4,33 @@ import pytest
 import time
 from unittestzero import Assert
 
+@pytest.fixture(scope="module", # IGNORE:E1101
+                params=["vsphere5", "rhevm31"])
+def management_system(request, cfme_data, mgmtsys_page):
+    param = request.param
+    def fin():
+        # Go back to the Management Systems list
+        ms_pg = mgmtsys_page.header.site_navigation_menu("Infrastructure").sub_navigation_menu("Management Systems").click()
+        ms_pg.select_management_system(cfme_data.data["management_systems"][param]["name"])
+        #ms_pg.click_on_remove_management_system()
+    request.addfinalizer(fin)
+    return cfme_data.data["management_systems"][param]
+
+@pytest.fixture # IGNORE:E1101
+def mgmtsys_page(home_page_logged_in):
+    return home_page_logged_in.header.site_navigation_menu("Infrastructure").sub_navigation_menu("Management Systems").click()
+
+@pytest.fixture # IGNORE:E1101
+def has_at_least_one_management_system(home_page_logged_in):
+    ms_pg = home_page_logged_in.header.site_navigation_menu("Infrastructure").sub_navigation_menu("Management Systems").click()
+    sleep_time = 1
+    while not len(ms_pg.quadicon_region.quadicons) > 0:
+        ms_pg.selenium.refresh()
+        time.sleep(sleep_time)
+        sleep_time *= 2
+
 @pytest.mark.setup # IGNORE:E1101
 @pytest.mark.destructive # IGNORE:E1101
-@pytest.mark.usefixtures("maximized") # IGNORE:E1101
-class TestImportData:
-    def test_import_automate(self, mozwebqa, home_page_logged_in, import_automate_file):
-        # base to enable provisioning: https://raw.github.com/aweiteka/cfme_test_config/master/exports/automate_model/base.xml
-        home_pg = home_page_logged_in
-        ms_pg = home_pg.header.site_navigation_menu("Automate").sub_navigation_menu("Import / Export").click()
-        Assert.true(ms_pg.is_the_current_page)
-        ms_pg = ms_pg.import_automate(import_automate_file)
-        Assert.true(ms_pg.flash.message == "Import file was uploaded successfully")
-
-    def test_import_policies(self, mozwebqa, home_page_logged_in, import_policy_file):
-        # customer demo: https://raw.github.com/aweiteka/cfme_test_config/master/exports/policies/customer_demo_policies.yaml
-        home_pg = home_page_logged_in
-        ms_pg = home_pg.header.site_navigation_menu("Control").sub_navigation_menu("Import / Export").click()
-        Assert.true(ms_pg.is_the_current_page)
-        ms_pg = ms_pg.import_policies(import_policy_file)
-        Assert.true(ms_pg.flash.message == "Press commit to Import")
-        ms_pg = ms_pg.click_on_commit()
-        Assert.true(ms_pg.flash.message == "Import file was uploaded successfully")
-
-    def test_import_reports(self):
-        report_file = "sample_reports.yaml"
-        reports = "%s/tests/%s" % (os.getcwd(), report_file)
-
-        home_pg = home_page_logged_in
-        report_pg = home_pg.header.site_navigation_menu("Virtual Intelligence").sub_navigation_menu("Reports").click()
-        Assert.true(report_pg.is_the_current_page)
-        import_pg = report_pg.click_on_import_export()
-        import_pg = import_pg.import_reports(reports)
-        Assert.true(any(import_pg.flash.message.startswith(m) for m in ["Imported Report", "Replaced Report"]))
-
-@pytest.mark.setup # IGNORE:E1101
-@py.mark.destructive # IGNORE:E1101
 @pytest.mark.usefixtures("maximized") # IGNORE:E1101
 class TestSetupMgmtSystems:
     def test_discover_management_systems_starts(self, mozwebqa, mgmtsys_page, management_system):
@@ -50,21 +42,13 @@ class TestSetupMgmtSystems:
         Assert.true(ms_pg.is_the_current_page)
         Assert.true(ms_pg.flash.message == "Management System: Discovery successfully initiated")
 
-    def test_management_systems_discovered(home_page_logged_in):a
-        # TODO: assert specific mgmt system exists
-        ms_pg = home_page_logged_in.header.site_navigation_menu("Infrastructure").sub_navigation_menu("Management Systems").click()
-        sleep_time = 1
-        while not len(ms_pg.quadicon_region.quadicons) > 0:
-            ms_pg.selenium.refresh()
-            time.sleep(sleep_time)
-            sleep_time *= 2
-
     # TODO: Change to use a fixture that uses Add Management System, instead of Discover.
     # This will allow to more easily specify the start and end states
-    @pytest.mark.usefixtures("test_management_systems_discovered") #IGNORE:E1101
+    @pytest.mark.usefixtures("has_at_least_one_management_system") #IGNORE:E1101
     def test_edit_management_system(self, mozwebqa, mgmtsys_page, management_system):
         ms_pg = mgmtsys_page
-        ms_pg.select_management_system(management_system["default_name"])
+        #cfme_data.data["management_systems"][param]["name"]
+        ms_pg.select_management_system(management_system["name"])
         Assert.true(len(ms_pg.quadicon_region.selected) == 1, "More than one quadicon was selected")
         mse_pg = ms_pg.click_on_edit_management_systems()
         msdetail_pg = mse_pg.edit_management_system(management_system)
@@ -178,7 +162,7 @@ class TestSetupMgmtSystems:
         Assert.true(added_pg.flash.message == 'Customization Template "This is a test" was added', "Flash message: %s" % added_pg.flash.message)
 
 @pytest.mark.setup # IGNORE:E1101
-@py.mark.destructive # IGNORE:E1101
+@pytest.mark.destructive # IGNORE:E1101
 @pytest.mark.usefixtures("maximized") # IGNORE:E1101
 class TestSetupDataCollection:
     @pytest.mark.skipif(True)
@@ -202,7 +186,38 @@ class TestSetupDataCollection:
         pass
 
 @pytest.mark.setup # IGNORE:E1101
-@py.mark.destructive # IGNORE:E1101
+@pytest.mark.destructive # IGNORE:E1101
+@pytest.mark.usefixtures("maximized") # IGNORE:E1101
+class TestImportData:
+    def test_import_automate(self, mozwebqa, home_page_logged_in, import_automate_file):
+        home_pg = home_page_logged_in
+        ms_pg = home_pg.header.site_navigation_menu("Automate").sub_navigation_menu("Import / Export").click()
+        Assert.true(ms_pg.is_the_current_page)
+        ms_pg = ms_pg.import_automate(import_automate_file)
+        Assert.true(ms_pg.flash.message == "Import file was uploaded successfully")
+
+    def test_import_policies(self, mozwebqa, home_page_logged_in, import_policy_file):
+        home_pg = home_page_logged_in
+        ms_pg = home_pg.header.site_navigation_menu("Control").sub_navigation_menu("Import / Export").click()
+        Assert.true(ms_pg.is_the_current_page)
+        ms_pg = ms_pg.import_policies(import_policy_file)
+        Assert.true(ms_pg.flash.message == "Press commit to Import")
+        ms_pg = ms_pg.click_on_commit()
+        Assert.true(ms_pg.flash.message == "Import file was uploaded successfully")
+
+    def test_import_reports(self):
+        report_file = "sample_reports.yaml"
+        reports = "%s/tests/%s" % (os.getcwd(), report_file)
+
+        home_pg = home_page_logged_in
+        report_pg = home_pg.header.site_navigation_menu("Virtual Intelligence").sub_navigation_menu("Reports").click()
+        Assert.true(report_pg.is_the_current_page)
+        import_pg = report_pg.click_on_import_export()
+        import_pg = import_pg.import_reports(reports)
+        Assert.true(any(import_pg.flash.message.startswith(m) for m in ["Imported Report", "Replaced Report"]))
+
+@pytest.mark.setup # IGNORE:E1101
+@pytest.mark.destructive # IGNORE:E1101
 @pytest.mark.usefixtures("maximized") # IGNORE:E1101
 class TestSetupProvisioning:
     @pytest.mark.skipif(True)
