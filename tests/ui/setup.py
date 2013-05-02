@@ -29,6 +29,12 @@ def has_at_least_one_management_system(home_page_logged_in):
         time.sleep(sleep_time)
         sleep_time *= 2
 
+@pytest.fixture(scope="module", # IGNORE:E1101
+                params=["rhel"])
+def pxe(request, cfme_data):
+    param = request.param
+    return cfme_data.data["pxe_servers"][param]
+
 @pytest.mark.setup # IGNORE:E1101
 @pytest.mark.destructive # IGNORE:E1101
 @pytest.mark.usefixtures("maximized") # IGNORE:E1101
@@ -69,8 +75,7 @@ class TestSetupMgmtSystems:
         # work-around: set "scan_via_host: false" in vmdb.yml
         pass
 
-    def test_add_pxe_server(self, mozwebqa):
-        NAME = "rhel_pxe_server"
+    def test_add_pxe_server(self, mozwebqa, home_page_logged_in, pxe):
         home_pg = home_page_logged_in
         pxe_pg = home_pg.header.site_navigation_menu("Infrastructure").sub_navigation_menu("PXE").click()
         Assert.true(pxe_pg.is_the_current_page)
@@ -80,13 +85,11 @@ class TestSetupMgmtSystems:
 
         pxe_pg.center_buttons.configuration_button.click()
         add_pg = pxe_pg.click_on_add_pxe_server()
-        refreshed_pg = add_pg.select_depot_type("Network File System")
-
-        #use default values
-        refreshed_pg.new_pxe_server_fill_data(name=NAME)
+        refreshed_pg = add_pg.select_depot_type(pxe['depot_type'])
+        refreshed_pg.new_pxe_server_fill_data(**pxe)
         refreshed_pg.click_on_add()
 
-        flash_message = 'PXE Server "%s" was added' % NAME
+        flash_message = 'PXE Server "%s" was added' % pxe['name']
 
         Assert.true(refreshed_pg.flash.message == flash_message, "Flash message: %s" % refreshed_pg.flash.message)
 
