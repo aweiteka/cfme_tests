@@ -25,4 +25,35 @@ management_systems:
         discovery_range:
             start: 10.0.0.3
             end: 10.0.0.3
-
+pxe_servers:
+    rhel:
+        name: rhel
+        depot_type: Network File System
+        uri: localhost/var/www/html/pub/ipxe/
+        access_url: http://localhost/ipxe
+        pxe_dir: pxe
+        windows_img_dir: sources/microsoft
+        customization_dir: customization
+        pxe_img_menus_filename: menu.php
+vm:
+    name: my_vm_name
+    template: 1234-5678_template
+    provision_type: iso
+events:
+    vm_events:
+        start: USER_RUN_VM
+        stop: USER_STOP_VM
+        started: USER_STARTED_VM
+rhevm_api_tool:
+    host: "https://localhost"
+    user: administrator
+    passwd: password
+listener:
+    url: "http://localhost"
+    port: 8080
+automate:
+    import_filename: datastore.xml
+control:
+    import_filename: policies.yaml
+reports:
+    import_filename: sample_reports.yaml

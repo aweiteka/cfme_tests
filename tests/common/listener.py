@@ -4,7 +4,7 @@
 # requires:
 # * bottle, sqlite
 # * port 8080 open
-# example: curl -X PUT http://localhost:8080/events/redhat/vm?event=power_on_vm
+# example: curl -X PUT http://localhost:8080/events/VmRedhat/vm_name?event=vm_start
 
 import os
 import sys
@@ -96,3 +96,4 @@ if __name__ == '__main__':
 
     #run(host=gethostname(), port=8080, debug=True)
     run(host='10.16.187.111', port=8080, debug=True)
+    #run(host='localhost', port=8080, debug=True)
