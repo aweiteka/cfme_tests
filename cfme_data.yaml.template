@@ -41,9 +41,18 @@ vm:
     provision_type: iso
 events:
     vm_events:
+        started: USER_STARTED_VM
         start: USER_RUN_VM
         stop: USER_STOP_VM
-        started: USER_STARTED_VM
+        shutdown_started: USER_INITIATED_SHUTDOWN_VM
+        down: VM_DOWN
+        tag: USER_ATTACH_TAG_TO_VM
+        untag: USER_DETACH_VM_FROM_TAG
+        add_started: USER_ADD_VM_STARTED
+        add_finished: USER_ADD_VM_FINISHED_SUCCESS
+        add_nic: NETWORK_ADD_VM_INTERFACE
+    host_events:
+        unknown_event: HOST_DOMAIN_DELAY_INTERVAL
 rhevm_api_tool:
     host: "https://localhost"
     user: administrator

@@ -13,11 +13,6 @@ import shlex
 import requests
 import logging
 
-# TODO:
-# * move rhevm_api_tool credentials to file 
-# * move api listener url:port to file 
-#   ^^ how to do outside of test methods? cfme_data.yaml? no __init__ method
-
 
 # Global variable (yuck!) used to record listener process info
 listener = None
@@ -49,18 +44,17 @@ def teardown_module(module):
     logging.info("%s\n%s" % (stdout, stderr))
 
 @pytest.fixture(scope="module", # IGNORE:E1101
-                params=["start", "stop"])
+                params=["stop", "start"])
 def events(request, cfme_data):
     param = request.param
     return cfme_data.data['events']['vm_events'][param]
 
-class APIMethods(object):
-    @classmethod
-    def setup_class(self):
-        self.listener_host = pytest.config.option.cfme_data.data['listener']
-        self.rhevm_api_tool = pytest.config.option.cfme_data.data['rhevm_api_tool']
+class APIMethods():
+    def __init__(self, cfme_data):
+        self.listener_host = cfme_data['listener']
+        self.rhevm_api_tool = cfme_data['rhevm_api_tool']
 
-    def api_request(self, route):
+    def get(self, route):
         listener_url = "%s:%s" % (self.listener_host['url'], self.listener_host['port'])
         logging.debug("api request to %s%s" % (listener_url, route))
         r = requests.get(listener_url + route)
@@ -78,7 +72,6 @@ class APIMethods(object):
         " -u " + self.rhevm_api_tool['user'] + \
         " -p " + self.rhevm_api_tool['passwd'] + \
         " -v %s -a %s" % (vm, action)
-        print call
         logging.info("RHEVM call: %s" % call)
         return subprocess.check_call(call, shell=True)
 
@@ -87,7 +80,7 @@ class APIMethods(object):
         sleep_interval = 10
         for attempt in range(1, max_attempts+1):
             try:
-                assert len(self.api_request(req)) == 1
+                assert len(self.get(req)) == 1
             except AssertionError as e:
                 if attempt < max_attempts:
                     logging.debug("Waiting for DB (%s/%s): %s" % (attempt, max_attempts, e))
@@ -104,17 +97,21 @@ class APIMethods(object):
 
         return True
 
-@pytest.mark.destructive  # IGNORE:E1101
-class TestEventListener(APIMethods):
-    def test_check_events_list_zero(self):
-        assert len(self.api_request('/events')) == 0
+@pytest.fixture(scope="module")
+def api_methods(request, cfme_data):
+    return APIMethods(cfme_data.data)
 
-    def test_vm_events(self, cfme_data, events):
+@pytest.mark.destructive  # IGNORE:E1101
+class TestEventListener():
+    def test_check_events_list_zero(self, api_methods):
+        assert len(api_methods.get('/events')) == 0
+
+    def test_vm_events(self, cfme_data, events, api_methods):
         vm = cfme_data.data['vm']['name']
         for k, v in cfme_data.data['events']['vm_events'].iteritems():
             if events in v:
-                self.call_rhevm(vm, k)
-        assert self.check_db("/events/VmRedhat/%s?event=%s" % (vm, events))
+                api_methods.call_rhevm(vm, k)
+        assert api_methods.check_db("/events/VmRedhat/%s?event=%s" % (vm, events))
 
     @pytest.mark.nondestructive  # IGNORE:E1101
     @pytest.mark.usefixtures("maximized") # IGNORE:E1101
