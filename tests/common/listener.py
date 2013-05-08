@@ -95,4 +95,4 @@ if __name__ == '__main__':
         return dict(result='success')
 
     #run(host=gethostname(), port=8080, debug=True)
-    run(host='10.16.187.111', port=8080, debug=True)
+    run(host='localhost', port=8080, debug=True)
