@@ -6,14 +6,8 @@ from unittestzero import Assert
 
 @pytest.fixture(scope="module", # IGNORE:E1101
                 params=["vsphere5", "rhevm31"])
-def management_system(request, cfme_data, mgmtsys_page):
+def management_system(request, cfme_data):
     param = request.param
-    def fin():
-        # Go back to the Management Systems list
-        ms_pg = mgmtsys_page.header.site_navigation_menu("Infrastructure").sub_navigation_menu("Management Systems").click()
-        ms_pg.select_management_system(cfme_data.data["management_systems"][param]["name"])
-        #ms_pg.click_on_remove_management_system()
-    request.addfinalizer(fin)
     return cfme_data.data["management_systems"][param]
 
 @pytest.fixture # IGNORE:E1101
@@ -29,16 +23,9 @@ def has_at_least_one_management_system(home_page_logged_in):
         time.sleep(sleep_time)
         sleep_time *= 2
 
-@pytest.fixture(scope="module", # IGNORE:E1101
-                params=["rhel"])
-def pxe(request, cfme_data):
-    param = request.param
-    return cfme_data.data["pxe_servers"][param]
-
-@pytest.mark.setup # IGNORE:E1101
-@pytest.mark.destructive # IGNORE:E1101
+@pytest.mark.nondestructive # IGNORE:E1101
 @pytest.mark.usefixtures("maximized") # IGNORE:E1101
-class TestSetupMgmtSystems:
+class TestManagementSystems:
     def test_discover_management_systems_starts(self, mozwebqa, mgmtsys_page, management_system):
         ms_pg = mgmtsys_page
         Assert.true(ms_pg.is_the_current_page)
@@ -48,13 +35,10 @@ class TestSetupMgmtSystems:
         Assert.true(ms_pg.is_the_current_page)
         Assert.true(ms_pg.flash.message == "Management System: Discovery successfully initiated")
 
-    # TODO: Change to use a fixture that uses Add Management System, instead of Discover.
-    # This will allow to more easily specify the start and end states
     @pytest.mark.usefixtures("has_at_least_one_management_system") #IGNORE:E1101
     def test_edit_management_system(self, mozwebqa, mgmtsys_page, management_system):
         ms_pg = mgmtsys_page
-        #cfme_data.data["management_systems"][param]["name"]
-        ms_pg.select_management_system(management_system["name"])
+        ms_pg.select_management_system(management_system["default_name"])
         Assert.true(len(ms_pg.quadicon_region.selected) == 1, "More than one quadicon was selected")
         mse_pg = ms_pg.click_on_edit_management_systems()
         msdetail_pg = mse_pg.edit_management_system(management_system)
@@ -62,18 +46,8 @@ class TestSetupMgmtSystems:
         Assert.true(msdetail_pg.name == management_system["name"])
         Assert.true(msdetail_pg.hostname == management_system["hostname"])
         Assert.true(msdetail_pg.zone == management_system["server_zone"])
-        Assert.true(msdetail_pg.vnc_port_range == management_system["host_vnc_port"])
-        # if msdetail_pg.credentials_validity == "None":
-            # Try reloading the page once. If we get valid then, ok. Otherwise, failure
-        # msdetail_pg.selenium.refresh()
-        # Assert.true(msdetail_pg.credentials_validity == "Valid")
- 
-    @pytest.mark.skipif(True)
-    def test_add_host_credentials(self, mozwebqa):
-        # see "test_edit_management_system"
-        # edit host, add default credentials
-        # work-around: set "scan_via_host: false" in vmdb.yml
-        pass
+        if "host_vnc_port" in management_system:
+            Assert.true(msdetail_pg.vnc_port_range == management_system["host_vnc_port"])
 
     def test_add_pxe_server(self, mozwebqa, home_page_logged_in, pxe):
         home_pg = home_page_logged_in
@@ -167,30 +141,6 @@ class TestSetupMgmtSystems:
 @pytest.mark.setup # IGNORE:E1101
 @pytest.mark.destructive # IGNORE:E1101
 @pytest.mark.usefixtures("maximized") # IGNORE:E1101
-class TestSetupDataCollection:
-    @pytest.mark.skipif(True)
-    def test_edit_management_engine_relationship(self, mozwebqa):
-        # REQUIRED?
-        # select appliance vm
-        # configuration "Edit Management Engine Relationship"
-        # select and save
-        pass
-
-    @pytest.mark.skipif(True)
-    def test_perform_smart_state_analysis(self, mozwebqa):
-        # REQUIRED?
-        # triggered manually for hosts, vms, etc?
-        pass
-
-    @pytest.mark.skipif(True)
-    def test_enable_cu_collection_region(self, mozwebqa):
-        # REQUIRED?
-        # aweiteka has page modeled.
-        pass
-
-@pytest.mark.setup # IGNORE:E1101
-@pytest.mark.destructive # IGNORE:E1101
-@pytest.mark.usefixtures("maximized") # IGNORE:E1101
 class TestImportData:
     def test_import_automate(self, mozwebqa, home_page_logged_in, import_automate_file):
         home_pg = home_page_logged_in
@@ -218,21 +168,3 @@ class TestImportData:
         import_pg = report_pg.click_on_import_export()
         import_pg = import_pg.import_reports(reports)
         Assert.true(any(import_pg.flash.message.startswith(m) for m in ["Imported Report", "Replaced Report"]))
-
-@pytest.mark.setup # IGNORE:E1101
-@pytest.mark.destructive # IGNORE:E1101
-@pytest.mark.usefixtures("maximized") # IGNORE:E1101
-class TestSetupProvisioning:
-    @pytest.mark.skipif(True)
-    def test_tag_infrastructure(self, mozwebqa):
-        # tag templates, hosts, datastores (also clusters for rhevm)
-        # "Provisioning Scope: All"
-        # Taggable mixin available
-        # example: https://github.com/RedHatQE/cfme_pages/blob/master/tests/test_configuration_access_control.py#L73
-        pass
-
-    @pytest.mark.skipif(True)
-    def test_assign_policies_to_managment_systems(self, mozwebqa):
-        # 
-        pass
-
