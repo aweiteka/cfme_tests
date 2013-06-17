@@ -6,7 +6,6 @@ import pytest
 import time
 from datetime import datetime
 from unittestzero import Assert
-#import copy
 from pages.login import LoginPage
 
 
@@ -28,10 +27,11 @@ from pages.login import LoginPage
 #@pytest.mark.usefixtures("maximized", "setup_mgmt_systems")
 @pytest.mark.usefixtures("maximized")
 class TestLdap:
-    _node_depth=3
+    # max supported depth: 4
+    _node_depth=4
 
     def test_default_ldap_group_roles(self, mozwebqa, home_page_logged_in, ldap_group, cfme_data):
-        """Basic default LDAP group role RBAC test
+        """Tests default LDAP group RBAC roles
         
         Validates enabled main menu and submenus are present for default 
         LDAP group roles. Cycles through RBAC UI for assigned group as admin
@@ -48,7 +48,7 @@ class TestLdap:
         grp_pg = config_pg.click_on_access_control().click_on_groups().click_on_group(ldap_group)
         role_pg = grp_pg.click_on_role()
         rbac_tree = role_pg.traverse_rbac_tree(depth=self._node_depth)
-        
+
         # have root RBAC object tree so now login as user and check items
         new_pg = LoginPage(mozwebqa)
         new_pg.go_to_login_page()
@@ -68,13 +68,12 @@ class TestLdap:
         '''
         if depth > 0:
             for node in tree.children:
-                if self.is_menu(node.name):
-                    node.name = self.translate_menu(node.name)
-                    if self.enabled(node):
+                if node.is_menu:
+                    if node.is_enabled:
                         page = self.ensure_present(page, node, parent, depth)
                     else:
                         if parent:
-                            if self.enabled(parent):
+                            if parent.is_enabled:
                                 self.ensure_absent(page, node, parent, depth)
                 else:
                     # item isn't a menu so there can't be any children
@@ -82,25 +81,26 @@ class TestLdap:
                 self.check_tree(page, node, depth-1, parent=node)
 
     def ensure_present(self, page, node, parent, depth):
-        '''Ensure item is visible
+        '''Ensure element is visible and navigate to page
         '''
         # Top nav
         if depth == self._node_depth:
-            Assert.true(page.header.site_navigation_menu(node.name).name == node.name)
-            print "Present: %s" % node.name
+            Assert.true(node.name in self.menu_items(page))
+            print "+ %s" % node.name
             return page
         # submenu
         elif depth == self._node_depth - 1:
-            subpage =  page.header.site_navigation_menu(parent.name).sub_navigation_menu(node.name).click()
-            Assert.true(subpage.is_the_current_page)
-            print "\tPresent: %s" % (node.name)
-            return subpage
-        # accordion (other items?)
-        elif depth == self._node_depth - 2:
-            if self.is_accordion(node):
-                displayed_accordion = [item.name for item in page.accordion.accordion_items]
-                Assert.true(node.name in displayed_accordion)
-                print "\t\tAccordion: %s" % node.name
+            page = self.nav_to_page(node.name, page, parent=parent.name)
+            Assert.true(page.is_the_current_page)
+            print "\t+ %s" % (node.name)
+            return page
+        # accordion
+        elif depth <= self._node_depth - 2:
+            if node.is_accordion:
+                Assert.true(node.name in self.menu_items(page=page, accordion=True))
+                print "\t\t+ %s (accordion)" % node.name
+            else:
+                print "\t\t%s: %s (%s)" % (node.name, node.node_type, depth)
             return page
 
     def ensure_absent(self, page, node, parent, depth):
@@ -108,48 +108,33 @@ class TestLdap:
         '''
         # top nav
         if depth == self._node_depth:
-            displayed_menus = [item.name for item in page.header.site_navigation_menus]
-            Assert.true(node.name not in displayed_menus)
-            print "Absent: %s (not in %s)" % (node.name, displayed_menus)
+            Assert.true(node.name not in self.menu_items(page))
+            print "- %s" % node.name
         # submenu
         elif depth == self._node_depth - 1:
-            displayed_menus = [item.name for item in page.header.site_navigation_menu(parent.name).items]
-            Assert.true(node.name not in displayed_menus)
-            print "\tAbsent: %s (not in %s)" % (node.name, displayed_menus)
-        # TODO: ensure accordion absent
+            Assert.true(node.name not in self.menu_items(page=page, parent=parent))
+            print "\t- %s" % node.name
+        # accordion
+        elif depth <= self._node_depth - 2:
+            if node.is_accordion:
+                Assert.true(node.name not in self.menu_items(page=page, accordion=True))
+                print "\t\t- %s (accordion)" % node.name
+            else:
+                print "\t\t%s: %s (%s)" % (node.name, node.node_type, depth)
 
-    def is_accordion(self, node):
-        '''Test if node is accordion based on icon image and list of exclusions
-        '''
-        not_accordion_items = ["All Services",
-                               "Accordions",
-                               "Template Access Rules",
-                               "VM Access Rules"
-                               ]
-        if "feature_node" in node.icon:
-            if node.name not in not_accordion_items:
-                return True
-
-    def is_menu(self, menu):
-        '''Filter out RBAC items that aren't represented as menus
-        '''
-        if menu not in ["Storage", "Buttons"]:
-            return True
-
-    def translate_menu(self, menu):
-        '''translate RBAC tree string into menu string
-        '''
-        menu_map = {"Settings & Operations": "Configuration", 
-                    "Catalogs Explorer": "Catalogs",
-                    # for submenus
-                    "Import/Export": "Import / Export",
-                    # for accordion
-                    "Import / Export": "Import/Export"}
-        return menu_map.get(menu, menu)
-
-    def enabled(self, menu):
-        '''check if menu is checked or checked_dim
-        '''
-        if menu.is_checked or menu.is_checked_dim:
-            return True
+    def menu_items(self, page, parent=None, accordion=None):
+        if parent:
+            return [item.name for item in page.header.site_navigation_menu(parent.name).items]
+        elif accordion:
+            return [item.name for item in page.accordion.accordion_items]
+        else:
+            return [item.name for item in page.header.site_navigation_menus]
+            
+    def nav_to_page(self, node, page, parent=None, item_type=None):
+        if parent:
+            return page.header.site_navigation_menu(parent).sub_navigation_menu(node).click()
+        else:
+            # placeholder for deep div into built-out pages
+            # Infrastructure is a candidate for this
+            return page
 
