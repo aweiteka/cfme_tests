@@ -11,19 +11,20 @@ from pages.login import LoginPage
 
 @pytest.mark.nondestructive  # IGNORE:E1101
 @pytest.mark.parametrize("ldap_group", [
-    "EvmGroup-administrator",
-    "EvmGroup-approver",
-    "EvmGroup-auditor",
-    "EvmGroup-desktop",
-    "EvmGroup-operator",
-    "EvmGroup-security",
-    "EvmGroup-super_administrator",
-    "EvmGroup-support",
-    "EvmGroup-user",
-    "EvmGroup-user_limited_self_service",
-    "EvmGroup-user_self_service",
+    #"EvmGroup-administrator",
+    #"EvmGroup-approver",
+    #"EvmGroup-auditor",
+    #"EvmGroup-desktop",
+    #"EvmGroup-operator",
+    #"EvmGroup-security",
+    #"EvmGroup-super_administrator",
+    #"EvmGroup-support",
+    #"EvmGroup-user",
+    #"EvmGroup-user_limited_self_service",
+    #"EvmGroup-user_self_service",
     "EvmGroup-vm_user" 
     ])
+# FIXME: uncomment
 #@pytest.mark.usefixtures("maximized", "setup_mgmt_systems")
 @pytest.mark.usefixtures("maximized")
 class TestLdap:
@@ -33,12 +34,14 @@ class TestLdap:
     def test_default_ldap_group_roles(self, mozwebqa, home_page_logged_in, ldap_group, cfme_data):
         """Tests default LDAP group RBAC roles
         
-        Validates enabled main menu and submenus are present for default 
+        Validates menu and accordion elements are present for default 
         LDAP group roles. Cycles through RBAC UI for assigned group as admin
         then logs in as user and tests items are presented correctly, 
         positive (menu exists) and negative (menu does not exist).
         
-        Tests top nav, submenus and accordion items
+        DEPENDENCIES: * CFME configured with LDAP authentication
+                      * Access to at least one management system
+                        (see https://bugzilla.redhat.com/show_bug.cgi?id=953271)
         """
         start = datetime.now()
 
@@ -96,11 +99,14 @@ class TestLdap:
             return page
         # accordion
         elif depth <= self._node_depth - 2:
+            print "\t\t%s" % node.name
             if node.is_accordion:
+                print "\t\t\tdebug node: %s" % node.name
+                if node.name == 
                 Assert.true(node.name in self.menu_items(page=page, accordion=True))
-                print "\t\t+ %s (accordion)" % node.name
-            else:
-                print "\t\t%s: %s (%s)" % (node.name, node.node_type, depth)
+                print "\t\t+ %s" % node.name
+            #else:
+            #    print "\t\t%s: %s (%s)" % (node.name, node.node_type, depth)
             return page
 
     def ensure_absent(self, page, node, parent, depth):
@@ -118,9 +124,9 @@ class TestLdap:
         elif depth <= self._node_depth - 2:
             if node.is_accordion:
                 Assert.true(node.name not in self.menu_items(page=page, accordion=True))
-                print "\t\t- %s (accordion)" % node.name
-            else:
-                print "\t\t%s: %s (%s)" % (node.name, node.node_type, depth)
+                print "\t\t- %s" % node.name
+            #else:
+            #    print "\t\t%s: %s (%s)" % (node.name, node.node_type, depth)
 
     def menu_items(self, page, parent=None, accordion=None):
         if parent:
