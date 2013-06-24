@@ -24,6 +24,8 @@ management_systems:
             Provisioning Scope: All
         test_vm_power_control:
             - vm_name
+        policy_profiles:
+            - example policy profile x
     rhevm31:
         name: RHEV 3.1
         default_name: RHEV-M (10.0.0.3)
@@ -46,6 +48,8 @@ management_systems:
             Provisioning Scope: All
         test_vm_power_control:
             - vm_name            
+        policy_profiles:
+            - example policy profile y
 pxe:
     pxe_servers:
         rhel:
